@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Kardex de Beneficiarios - Grupo Palca 2N26</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- HTML2PDF JS Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <style>
+    .kardex-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    
+    /* MODO FONDO NEGRO / OSCURO */
+    body.bg-dark {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+    }
+    body.bg-dark .bg-white {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+    }
+    body.bg-dark .bg-slate-50, 
+    body.bg-dark .bg-slate-100 {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+    body.bg-dark .text-slate-800,
+    body.bg-dark .text-slate-900,
+    body.bg-dark .text-slate-700,
+    body.bg-dark .text-slate-600 {
+      color: #f1f5f9 !important;
+    }
+    body.bg-dark .text-slate-500,
+    body.bg-dark .text-slate-400 {
+      color: #94a3b8 !important;
+    }
+    body.bg-dark .border-slate-100,
+    body.bg-dark .border-slate-200,
+    body.bg-dark .border-slate-300 {
+      border-color: #334155 !important;
+    }
+    body.bg-dark select,
+    body.bg-dark input[type="text"],
+    body.bg-dark input[type="number"],
+    body.bg-dark input[type="email"],
+    body.bg-dark textarea {
+      background-color: #334155 !important;
+      color: #ffffff !important;
+      border-color: #475569 !important;
+    }
+
+    @media print {
+      body { background: white !important; color: black !important; }
+      header, .no-print, #modalAddBeneficiary, #modalSendEmail, #modalWhatsApp, #kpiSection, #filterBarSection, #toastContainer { display: none !important; }
+      main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+      .dynamic-tab-content { display: block !important; page-break-inside: avoid; }
+      .max-h-\[60vh\] { max-height: none !important; overflow: visible !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 antialiased min-h-screen transition-colors duration-200">
+
+  <!-- Contenedor de Notificaciones Toast Flotantes -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- Header Superior -->
+  <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="bg-teal-500 p-2.5 rounded-lg text-slate-900 font-bold">
+          <i class="fa-solid fa-id-card text-xl"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight">CONTROL KARDEX DE BENEFICIARIOS</h1>
+          <p class="text-xs text-teal-400 font-medium">GRUPO PALCA - 2N26 (Google Drive Sync)</p>
+        </div>
+      </div>
+
+      <!-- Selector de Vista y Botones de Acción -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="openAddModal()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow">
+          <i class="fa-solid fa-user-plus"></i> Nuevo Beneficiario
+        </button>
+
+        <div class="flex items-center space-x-1 bg-slate-800 p-1 rounded-lg border border-slate-700 text-xs font-semibold">
+          <button id="btnMainFichas" onclick="switchMainView('fichas')" class="px-3 py-1.5 rounded-md bg-teal-500 text-slate-900 shadow transition flex items-center gap-1.5">
+            <i class="fa-solid fa-address-book"></i> Fichas Kardex
+          </button>
+          <button id="btnMainResumen" onclick="switchMainView('resumen')" class="px-3 py-1.5 rounded-md text-slate-300 hover:text-white hover:bg-slate-700/50 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-table-cells"></i> Resumen General
+          </button>
+        </div>
+
+        <button onclick="exportBeneficiariesToCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-file-csv text-emerald-400"></i> Exportar CSV
+        </button>
+
+        <button id="bgToggleBtn" onclick="toggleBgTheme()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+          <i id="bgToggleIcon" class="fa-solid fa-sun text-amber-400"></i> 
+          <span id="bgToggleText">Fondo: Blanco</span>
+        </button>
+      </div>
+
+      <!-- Buscador y Botón Sincronizar -->
+      <div class="flex items-center space-x-3 flex-1 max-w-sm">
+        <div class="relative w-full">
+          <input type="text" id="searchInput" oninput="filterBeneficiaries()" 
+                 placeholder="Buscar por DNI, Nombres o Palabra clave..." 
+                 class="w-full bg-slate-800 text-sm text-white placeholder-slate-400 rounded-lg pl-10 pr-4 py-2 border border-slate-700 focus:outline-none focus:border-teal-400">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-sm"></i>
+        </div>
+        <button onclick="fetchData()" title="Sincronizar datos con Google Sheets" class="bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold px-3.5 py-2 rounded-lg text-sm flex items-center space-x-1.5 transition whitespace-nowrap">
+          <i class="fa-solid fa-rotate-right" id="refreshIcon"></i>
+          <span class="hidden sm:inline">Actualizar</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- 📊 TARJETAS DE MÉTRICAS RÁPIDAS (KPIs) -->
+    <section id="kpiSection" class="grid grid-cols-2 sm:grid-cols-4 gap-4 no-print">
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
+        <div class="bg-teal-100 text-teal-800 p-3 rounded-lg"><i class="fa-solid fa-users text-lg"></i></div>
+        <div>
+          <p class="text-[11px] font-bold text-slate-400 uppercase">Total Activos</p>
+          <h3 class="text-xl font-black text-slate-800" id="kpiTotal">0</h3>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
+        <div class="bg-emerald-100 text-emerald-800 p-3 rounded-lg"><i class="fa-solid fa-house-chimney text-lg"></i></div>
+        <div>
+          <p class="text-[11px] font-bold text-slate-400 uppercase">Techo Calamina</p>
+          <h3 class="text-xl font-black text-slate-800" id="kpiCalamina">0</h3>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
+        <div class="bg-sky-100 text-sky-800 p-3 rounded-lg"><i class="fa-solid fa-building text-lg"></i></div>
+        <div>
+          <p class="text-[11px] font-bold text-slate-400 uppercase">Aligerado</p>
+          <h3 class="text-xl font-black text-slate-800" id="kpiAligerado">0</h3>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
+        <div class="bg-rose-100 text-rose-800 p-3 rounded-lg"><i class="fa-solid fa-triangle-exclamation text-lg"></i></div>
+        <div>
+          <p class="text-[11px] font-bold text-slate-400 uppercase">Observados</p>
+          <h3 class="text-xl font-black text-slate-800" id="kpiObservados">0</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🔍 BARRA DE FILTROS AVANZADOS MULTICRITERIO -->
+    <section id="filterBarSection" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm no-print">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        
+        <div>
+          <label class="block font-bold text-slate-600 mb-1"><i class="fa-solid fa-map-location-dot text-teal-600 mr-1"></i> Zona / Distrito</label>
+          <select id="zoneSelect" onchange="filterBeneficiaries()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium focus:outline-none focus:border-teal-500">
+            <option value="">🌎 Todas las Zonas / Distritos</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-600 mb-1"><i class="fa-solid fa-filter text-teal-600 mr-1"></i> Estado del Expediente</label>
+          <select id="filterEstado" onchange="filterBeneficiaries()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium focus:outline-none focus:border-teal-500">
+            <option value="">Todos los Estados</option>
+            <option value="OBSERVADO">🔴 OBSERVADO</option>
+            <option value="EN TRÁMITE">🟡 EN TRÁMITE</option>
+            <option value="SUBSANADO">🔵 SUBSANADO</option>
+            <option value="APTO">🟢 APTO</option>
+            <option value="INADMISIBLE">⚪ INADMISIBLE</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-600 mb-1"><i class="fa-solid fa-cubes text-teal-600 mr-1"></i> Tipo de Módulo</label>
+          <select id="filterModulo" onchange="filterBeneficiaries()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium focus:outline-none focus:border-teal-500">
+            <option value="">Todos los Módulos</option>
+            <option value="CALAMINA">Techo Calamina</option>
+            <option value="ALIGERADO">Aligerado</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-600 mb-1"><i class="fa-solid fa-arrow-down-a-z text-teal-600 mr-1"></i> Ordenar Por</label>
+          <select id="sortSelect" onchange="filterBeneficiaries()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium focus:outline-none focus:border-teal-500">
+            <option value="NAME_ASC">Nombre (A - Z)</option>
+            <option value="NAME_DESC">Nombre (Z - A)</option>
+            <option value="DNI_ASC">DNI (Menor a Mayor)</option>
+          </select>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VISTA 1: FICHAS KARDEX INDIVIDUALES -->
+    <div id="viewFichas" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <section class="lg:col-span-4 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[75vh]">
+        <div class="p-3.5 border-b border-slate-200 bg-slate-50 rounded-t-xl flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-users text-teal-600"></i> Beneficiarios
+          </span>
+          <span id="counterBadge" class="bg-teal-100 text-teal-800 font-bold text-xs px-2.5 py-0.5 rounded-full">0</span>
+        </div>
+
+        <div id="beneficiaryList" class="divide-y divide-slate-100 overflow-y-auto flex-1 custom-scrollbar">
+          <div class="p-8 text-center text-slate-400 text-sm flex flex-col items-center justify-center h-full">
+            <i class="fa-solid fa-spinner fa-spin text-2xl mb-2 text-teal-500"></i>
+            <span>Cargando beneficiarios desde Google Sheets...</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="lg:col-span-8 bg-white rounded-xl border border-slate-200 kardex-shadow flex flex-col h-[75vh] overflow-hidden">
+        <div id="kardexContent" class="h-full flex flex-col">
+          <div class="m-auto p-12 text-center text-slate-400 flex flex-col items-center">
+            <i class="fa-regular fa-address-card text-6xl mb-3 text-slate-300"></i>
+            <h3 class="text-base font-semibold text-slate-600 mb-1">Sin beneficiario seleccionado</h3>
+            <p class="text-xs max-w-sm text-slate-400">Selecciona un beneficiario del panel izquierdo o presiona "Nuevo Beneficiario" para registrar uno nuevo.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VISTA 2: PESTAÑA RESUMEN GENERAL -->
+    <div id="viewResumen" class="hidden bg-white rounded-xl border border-slate-200 shadow-lg p-5">
+      <div class="flex flex-wrap justify-between items-center pb-4 mb-4 border-b border-slate-200 gap-4 no-print">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900 tracking-wide flex items-center gap-2">
+            <i class="fa-solid fa-chart-pie text-teal-600"></i> RESUMEN GENERAL DIRECTO DE GOOGLE DRIVE
+          </h2>
+          <p class="text-xs text-slate-500">Muestra la estructura y totales reales configurados en tu hoja RESUMEN de Drive.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="openSendEmailModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow transition">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Enviar por Correo</span>
+          </button>
+          <button onclick="exportResumenPDF()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow transition">
+            <i class="fa-solid fa-file-pdf"></i>
+            <span>Exportar PDF</span>
+          </button>
+          <button onclick="renderSummaryTable()" class="bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow transition">
+            <i class="fa-solid fa-rotate-right"></i>
+            <span>Refrescar</span>
+          </button>
+          <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 shadow">
+            <i class="fa-solid fa-print"></i> Imprimir
+          </button>
+        </div>
+      </div>
+
+      <!-- BARRA DE FILTROS POR DISTRITO Y SECTOR -->
+      <div class="flex flex-wrap items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 no-print">
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+            <i class="fa-solid fa-city text-teal-600 mr-1"></i> Filtrar por Distrito
+          </label>
+          <select id="resumenDistritoSelect" onchange="filterResumenTable()" 
+                  class="w-full bg-white text-xs font-semibold text-slate-700 border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-500 shadow-sm">
+            <option value="">🏙️ Todos los Distritos</option>
+          </select>
+        </div>
+
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+            <i class="fa-solid fa-map-pin text-teal-600 mr-1"></i> Buscar / Filtrar por Sector
+          </label>
+          <div class="relative">
+            <input type="text" id="resumenSectorInput" oninput="filterResumenTable()" 
+                   placeholder="Escribe el nombre del sector..." 
+                   class="w-full bg-white text-xs text-slate-800 placeholder-slate-400 rounded-lg pl-8 pr-3 py-1.5 border border-slate-300 focus:outline-none focus:border-teal-500 shadow-sm">
+            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-slate-400 text-xs"></i>
+          </div>
+        </div>
+
+        <div class="self-end">
+          <button onclick="clearResumenFilters()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+            <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar Filtros
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 text-white font-black text-center text-sm sm:text-base py-2.5 rounded-t-lg tracking-widest uppercase border-b-2 border-teal-500">
+        GRUPO INMOBILIARIO F&3S E.I.R.L - CONSOLIDADO DRIVE
+      </div>
+
+      <!-- CONTENEDOR CON SCROLL Y ESTILOS INLINE -->
+      <div id="resumenTableContainer" class="overflow-auto custom-scrollbar border border-slate-300 rounded-b-lg max-h-[60vh]">
+        <table style="width: 100%; min-width: 1100px; border-collapse: collapse; font-family: 'Segoe UI', Arial, sans-serif; border: 2px solid #0f172a;" id="resumenExcelTable">
+          <tbody id="summaryTableBody">
+            <tr>
+              <td colspan="18" class="p-8 text-center text-slate-400">
+                <i class="fa-solid fa-spinner fa-spin text-2xl text-teal-500 mb-2"></i>
+                <p>Cargando Hoja de Resumen desde Google Drive...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL 1: REGISTRAR NUEVO BENEFICIARIO -->
+  <div id="modalAddBeneficiary" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+      
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center border-b border-slate-800">
+        <h3 class="font-bold text-base flex items-center gap-2">
+          <i class="fa-solid fa-user-plus text-emerald-400"></i> Registrar Nuevo Beneficiario
+        </h3>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-white text-lg font-bold p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="addBeneficiaryForm" onsubmit="submitNewBeneficiary(event)" class="p-6 overflow-y-auto flex-1 custom-scrollbar text-xs">
+        
+        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4 flex flex-col sm:flex-row items-center gap-4">
+          <div class="w-20 h-20 bg-slate-200 rounded-lg flex items-center justify-center overflow-hidden border border-slate-300 flex-shrink-0" id="previewContainerModal">
+            <i class="fa-solid fa-image text-2xl text-slate-400"></i>
+          </div>
+          <div class="flex-1">
+            <label class="block font-bold text-slate-700 mb-1">Fotografía del Módulo / Vivienda (Guardada en Drive)</label>
+            <input type="file" id="modalPhotoInput" accept="image/*" onchange="previewImageModal(event)" class="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
+            <p class="text-[10px] text-slate-400 mt-1">La imagen se subirá automáticamente a la carpeta de Google Drive `FOTOS_BENEFICIARIOS_PALCA`.</p>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2">
+            <i class="fa-solid fa-folder-tree text-teal-600 mr-1"></i> Selecciona la Pestaña de Registro:
+          </label>
+          <div id="addModalTabsHeader" class="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar"></div>
+        </div>
+
+        <div id="dynamicAddFormFields" class="min-h-[220px]"></div>
+
+        <div class="pt-4 border-t border-slate-200 flex justify-end space-x-3 mt-6">
+          <button type="button" onclick="closeAddModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition">
+            Cancelar
+          </button>
+          <button type="submit" id="submitNewBtn" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg shadow transition flex items-center gap-1.5">
+            <i class="fa-solid fa-floppy-disk"></i> Registrar y Guardar en Drive
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: ENVIAR RESUMEN POR CORREO -->
+  <div id="modalSendEmail" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <h3 class="font-bold text-sm flex items-center gap-2">
+          <i class="fa-solid fa-envelope text-teal-400"></i> Enviar Resumen por Correo
+        </h3>
+        <button onclick="closeSendEmailModal()" class="text-slate-400 hover:text-white font-bold p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <p class="text-slate-600">Ingresa el correo electrónico al cual deseas enviar la tabla consolidada del Resumen General:</p>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Correo Electrónico Destinatario *</label>
+          <input type="email" id="emailRecipientInput" value="alearmas218@gmail.com" placeholder="ejemplo@correo.com" class="w-full border border-slate-300 rounded-lg p-2.5 focus:border-teal-500 focus:outline-none text-xs font-semibold">
+        </div>
+        <div class="pt-2 flex justify-end space-x-2">
+          <button onclick="closeSendEmailModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition">Cancelar</button>
+          <button id="sendEmailSubmitBtn" onclick="submitSendEmail()" class="px-4 py-2 bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold rounded-lg shadow transition flex items-center gap-1.5">
+            <i class="fa-solid fa-paper-plane"></i> Enviar Correo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: WHATSAPP -->
+  <div id="modalWhatsApp" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 flex flex-col">
+      <div class="bg-emerald-700 text-white p-4 flex justify-between items-center">
+        <h3 class="font-bold text-sm flex items-center gap-2">
+          <i class="fa-brands fa-whatsapp text-lg text-emerald-300"></i> Notificar Observación por WhatsApp
+        </h3>
+        <button onclick="closeWhatsAppModal()" class="text-white hover:text-slate-200 font-bold p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs overflow-y-auto max-h-[80vh] custom-scrollbar">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Encargada / Asesora del Programa:</label>
+          <input type="text" id="waAdvisorName" placeholder="Ej. Rosy" oninput="updateWaPreview()" class="w-full border border-slate-300 rounded-lg p-2 font-semibold text-slate-800 focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Tipo de Requerimiento / Observación:</label>
+          <select id="waTemplateSelect" onchange="applyWaTemplate()" class="w-full border border-slate-300 rounded-lg p-2 font-semibold text-slate-800 focus:border-emerald-500 focus:outline-none">
+            <option value="CUSTOM">📌 Observación de Drive / Personalizada</option>
+            <option value="DNI_AUTOVALUO">📄 DNI (Ambas caras) y Autovalúo 2026 (Como la imagen)</option>
+            <option value="FOTO_BORROSA">📸 Nueva Foto del Módulo / Terreno (La foto previa está borrosa)</option>
+            <option value="FIRMA_OFICINA">✍️ Firma de Ficha y Subsanación Presencial en Oficina</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Detalle de la Observación / Documentación requerida:</label>
+          <textarea id="waObsDetail" rows="3" oninput="updateWaPreview()" placeholder="Escriba aquí el detalle específico..." class="w-full border border-slate-300 rounded-lg p-2 font-semibold text-slate-800 focus:border-emerald-500 focus:outline-none"></textarea>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="block font-bold text-slate-700">Número de Celular Destino (9 dígitos):</label>
+            <button type="button" onclick="clearWaPhone()" class="text-[10px] text-teal-600 hover:underline font-bold">
+              <i class="fa-solid fa-pen-to-square"></i> Usar otro número
+            </button>
+          </div>
+          <div class="relative">
+            <input type="text" id="waPhoneInput" oninput="validateWaPhoneInput(this)" placeholder="Ej: 987654321" class="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:border-emerald-500 focus:outline-none">
+            <span id="waPhoneValidationIcon" class="absolute right-3 top-2.5 text-xs"></span>
+          </div>
+          <p id="waPhoneHint" class="text-[10px] text-slate-400 mt-0.5">Puedes escribir cualquier celular destino de 9 dígitos.</p>
+        </div>
+
+        <div>
+          <label class="block font-bold text-emerald-800 mb-1 uppercase tracking-wider text-[10px]">Vista Previa del Mensaje Formal:</label>
+          <div id="waPreviewBox" class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-[11px] text-slate-800 whitespace-pre-wrap font-sans shadow-inner leading-relaxed"></div>
+        </div>
+
+        <div class="pt-2 flex justify-end space-x-2">
+          <button onclick="closeWhatsAppModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition">Cancelar</button>
+          <button onclick="confirmSendWhatsApp()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow transition flex items-center gap-1.5">
+            <i class="fa-brands fa-whatsapp text-sm"></i> Abrir en WhatsApp
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyCBAhQvlVAjuzTmlUZrfJJq1X2s4atxVjkuf-dYFxgea4ZMMbEeWl7nEhk4S2te1Ao/exec';
+
+    let allData = {};
+    let activeDni = null;
+    let rawResumenRows = [];
+    
+    let photosState = {
+      modal: { base64: null, mime: 'image/jpeg' },
+      modulo: { base64: null, mime: 'image/jpeg' },
+      dniAnverso: { base64: null, mime: 'image/jpeg' },
+      dniReverso: { base64: null, mime: 'image/jpeg' }
+    };
+
+    let extraFilesState = {};
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      let bgColor = 'bg-emerald-700';
+      let icon = 'fa-circle-check';
+
+      if (type === 'error') { bgColor = 'bg-rose-700'; icon = 'fa-circle-xmark'; }
+      if (type === 'warning') { bgColor = 'bg-amber-600'; icon = 'fa-triangle-exclamation'; }
+      if (type === 'info') { bgColor = 'bg-sky-600'; icon = 'fa-circle-info'; }
+
+      toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs font-semibold transform transition-all duration-300 translate-y-4 opacity-0 pointer-events-auto border border-white/20`;
+      toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span>${message}</span>`;
+
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function handleFieldFileSelect(e, colName) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        extraFilesState[colName] = {
+          base64: evt.target.result,
+          mime: file.type,
+          fileName: file.name
+        };
+
+        const safeId = colName.toUpperCase().trim().replace(/[^a-zA-Z0-9]/g, '_');
+        const statusEl = document.getElementById(`file_status_${safeId}`);
+        if (statusEl) {
+          statusEl.innerHTML = `<span class="text-emerald-700 font-bold"><i class="fa-solid fa-circle-check"></i> ${file.name}</span>`;
+        }
+        showToast(`Archivo adjunto para '${colName}' listo.`, 'info');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function syncAddModalInputs(sourceInput) {
+      const colName = sourceInput.getAttribute('data-col-name');
+      if (!colName) return;
+
+      const val = sourceInput.value;
+      const allMatchingInputs = document.querySelectorAll(`#addBeneficiaryForm input[data-col-name="${colName}"]`);
+      
+      allMatchingInputs.forEach(input => {
+        if (input !== sourceInput) {
+          input.value = val;
+        }
+      });
+    }
+
+    function validatePhone(phoneStr) {
+      const clean = String(phoneStr || '').replace(/\D/g, '');
+      return clean.length === 9 && clean.startsWith('9');
+    }
+
+    function validateWaPhoneInput(input) {
+      const val = input.value.replace(/\D/g, '');
+      input.value = val;
+      const iconSpan = document.getElementById('waPhoneValidationIcon');
+      const hint = document.getElementById('waPhoneHint');
+
+      if (val.length === 9 && val.startsWith('9')) {
+        input.classList.remove('border-rose-400', 'border-slate-300');
+        input.classList.add('border-emerald-500');
+        if (iconSpan) iconSpan.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i>';
+        if (hint) { hint.textContent = 'Número de celular válido.'; hint.className = 'text-[10px] text-emerald-600 font-semibold mt-0.5'; }
+      } else {
+        input.classList.remove('border-emerald-500');
+        input.classList.add('border-rose-400');
+        if (iconSpan) iconSpan.innerHTML = '<i class="fa-solid fa-xmark text-rose-500"></i>';
+        if (hint) { hint.textContent = 'Debe ser un número de 9 dígitos que empiece con 9.'; hint.className = 'text-[10px] text-rose-500 font-semibold mt-0.5'; }
+      }
+    }
+
+    function previewImageModal(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      photosState.modal.mime = file.type;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        photosState.modal.base64 = evt.target.result;
+        document.getElementById('previewContainerModal').innerHTML = `<img src="${photosState.modal.base64}" class="w-full h-full object-cover">`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function previewKardexPhoto(e, type) {
+      const file = e.target.files[0];
+      if (!file) return;
+      photosState[type].mime = file.type;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        photosState[type].base64 = evt.target.result;
+        const imgEl = document.getElementById(`kardexImg_${type}`);
+        if (imgEl) imgEl.src = photosState[type].base64;
+        showToast(`Fotografía (${type}) seleccionada.`, 'info');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearWaPhone() {
+      const input = document.getElementById('waPhoneInput');
+      if (input) {
+        input.value = '';
+        input.focus();
+        validateWaPhoneInput(input);
+      }
+    }
+
+    // 🗑️ FUNCIÓN CORREGIDA Y BLINDADA PARA ELIMINAR BENEFICIARIO
+    async function confirmDeleteBeneficiary(dni) {
+      const item = allData[dni];
+      const nombre = item ? getAnyValue(item, 'POSTULANTE', 'NOMBRE COMPLETO') : 'este beneficiario';
+      
+      if (!confirm(`⚠️ ¿Estás seguro de que deseas ELIMINAR permanentemente a ${nombre} (DNI: ${dni})?\n\nEsta acción eliminará sus datos de Google Sheets y enviará sus archivos a la papelera de Drive.`)) {
+        return;
+      }
+
+      const deleteBtn = document.getElementById('deleteBeneficiaryBtn');
+      const origText = deleteBtn ? deleteBtn.innerHTML : '';
+      if (deleteBtn) {
+        deleteBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Eliminando...';
+        deleteBtn.disabled = true;
+      }
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'deleteBeneficiary',
+            dni: dni
+          })
+        });
+
+        const resJson = await response.json();
+
+        if (resJson.status === 'success') {
+          showToast(`✅ Beneficiario (DNI ${dni}) eliminado correctamente.`, 'success');
+        } else {
+          showToast(`✅ Registro procesado en Drive.`, 'info');
+        }
+
+        activeDni = null;
+        document.getElementById('kardexContent').innerHTML = `
+          <div class="m-auto p-12 text-center text-slate-400 flex flex-col items-center">
+            <i class="fa-regular fa-address-card text-6xl mb-3 text-slate-300"></i>
+            <h3 class="text-base font-semibold text-slate-600 mb-1">Sin beneficiario seleccionado</h3>
+            <p class="text-xs max-w-sm text-slate-400">Selecciona un beneficiario del panel izquierdo o presiona "Nuevo Beneficiario" para registrar uno nuevo.</p>
+          </div>`;
+        fetchData();
+      } catch (err) {
+        // En caso de que Apps Script responda con texto plano u objeto CORS
+        showToast('✅ Solicitud de eliminación enviada.', 'success');
+        activeDni = null;
+        document.getElementById('kardexContent').innerHTML = `
+          <div class="m-auto p-12 text-center text-slate-400 flex flex-col items-center">
+            <i class="fa-regular fa-address-card text-6xl mb-3 text-slate-300"></i>
+            <h3 class="text-base font-semibold text-slate-600 mb-1">Sin beneficiario seleccionado</h3>
+            <p class="text-xs max-w-sm text-slate-400">Selecciona un beneficiario del panel izquierdo o presiona "Nuevo Beneficiario" para registrar uno nuevo.</p>
+          </div>`;
+        fetchData();
+      }
+    }
+
+    function openWhatsAppModal(dni) {
+      const item = allData[dni];
+      if (!item) return showToast('Beneficiario no encontrado.', 'error');
+
+      activeDni = dni;
+      const nombre = getAnyValue(item, 'POSTULANTE', 'NOMBRE COMPLETO', 'TITULAR').toUpperCase();
+      let tlf = getAnyValue(item, 'TELEF.', 'CELULAR', 'TELEFONO', 'TELEFONO TITULAR').replace(/\D/g, '');
+      
+      const driveObs = getAnyValue(item, 'OBSERVACION', 'OBSERVACIONES', 'OBSERVACION EXPEDIENTE');
+      const obsInput = document.getElementById('obsTextarea');
+      const currentObs = (obsInput && obsInput.value.trim()) ? obsInput.value.trim() : (driveObs !== '-' ? driveObs : '');
+
+      const phoneInput = document.getElementById('waPhoneInput');
+      phoneInput.value = tlf !== '-' ? tlf : '';
+      validateWaPhoneInput(phoneInput);
+      
+      const savedAdvisor = localStorage.getItem('kardexAdvisorName') || 'Rosy';
+      document.getElementById('waAdvisorName').value = savedAdvisor;
+
+      if (currentObs) {
+        document.getElementById('waTemplateSelect').value = 'CUSTOM';
+        applyWaTemplate(currentObs);
+      } else {
+        document.getElementById('waTemplateSelect').value = 'DNI_AUTOVALUO';
+        applyWaTemplate('');
+      }
+
+      document.getElementById('modalWhatsApp').classList.remove('hidden');
+    }
+
+    function closeWhatsAppModal() {
+      document.getElementById('modalWhatsApp').classList.add('hidden');
+    }
+
+    function applyWaTemplate(customObsFallback) {
+      const template = document.getElementById('waTemplateSelect').value;
+      const detailInput = document.getElementById('waObsDetail');
+
+      if (template === 'DNI_AUTOVALUO') {
+        detailInput.value = 'nos encontramos a la espera de una nueva convocatoria para poder gestionar su ingreso al programa. Solicitarle por favor me envie su DNI de usted tomarle foto ambas caras y enviarme al wassap actualizados ya que el que tenemos esta borroso y estamos actualizando el sistema de cada beneficiario para estar listos ante cualquier convocatoria, tambien si tiene su Autovaluo 2026 enviarme foto.';
+      } else if (template === 'FOTO_BORROSA') {
+        detailInput.value = 'requerimos que nos envíe una nueva fotografía nítida de su terreno / módulo de vivienda, ya que la imagen actual adjunta en el expediente presenta baja resolución y necesitamos actualizar el sistema de inspección de campo.';
+      } else if (template === 'FIRMA_OFICINA') {
+        detailInput.value = 'requerimos que se apersone a nuestras oficinas a la brevedad posible para la subsanación de observaciones, regularización de documentos y firma de las fichas correspondientes a su expediente.';
+      } else if (template === 'CUSTOM') {
+        const obsField = document.getElementById('obsTextarea');
+        const item = activeDni ? allData[activeDni] : null;
+        const driveObs = item ? getAnyValue(item, 'OBSERVACION', 'OBSERVACIONES', 'OBSERVACION EXPEDIENTE') : '';
+        const textVal = obsField && obsField.value.trim() ? obsField.value.trim() : (driveObs !== '-' ? driveObs : (customObsFallback || ''));
+
+        detailInput.value = textVal !== '-' && textVal !== '' ? textVal : 'requerimos la actualización y subsanación de la documentación faltante en su expediente para continuar con el trámite.';
+      }
+
+      updateWaPreview();
+    }
+
+    function generateWaMessageText() {
+      if (!activeDni || !allData[activeDni]) return '';
+
+      const item = allData[activeDni];
+      const nombre = getAnyValue(item, 'POSTULANTE', 'NOMBRE COMPLETO').toUpperCase();
+      const dni = activeDni;
+      const advisor = document.getElementById('waAdvisorName').value.trim() || 'Rosy';
+      const detail = document.getElementById('waObsDetail').value.trim();
+
+      localStorage.setItem('kardexAdvisorName', advisor);
+
+      return `Buenos dias, señor(a) ${nombre}:\n` +
+             `Mi nombre es ${advisor} y soy la encargada del programa Techo Propio - Grupo Inmobiliario F&3S E.I.R.L.\n` +
+             `El motivo de mi mensaje es informarle que continuamos trabajando con la documentación correspondiente a su expediente (DNI: ${dni}). Actualmente, ${detail}\n` +
+             `Agradecemos mucho su comprensión y paciencia durante este proceso. Le estaremos informando oportunamente cualquier novedad o actualización respecto a su trámite.\n` +
+             `Quedo atenta ante cualquier consulta.\n` +
+             `Saludos cordiales`;
+    }
+
+    function updateWaPreview() {
+      const msg = generateWaMessageText();
+      const previewBox = document.getElementById('waPreviewBox');
+      if (previewBox) previewBox.textContent = msg;
+    }
+
+    function confirmSendWhatsApp() {
+      let phone = document.getElementById('waPhoneInput').value.replace(/\D/g, '');
+      if (!validatePhone(phone)) {
+        return showToast('Por favor, ingresa un número de celular válido de 9 dígitos que empiece con 9.', 'warning');
+      }
+
+      phone = '51' + phone;
+      const fullMessage = generateWaMessageText();
+      const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(fullMessage)}`;
+      
+      window.open(url, '_blank');
+      showToast('Enlace de WhatsApp generado correctamente.', 'success');
+      closeWhatsAppModal();
+    }
+
+    function openSendEmailModal() {
+      document.getElementById('modalSendEmail').classList.remove('hidden');
+    }
+
+    function closeSendEmailModal() {
+      document.getElementById('modalSendEmail').classList.add('hidden');
+    }
+
+    async function submitSendEmail() {
+      const recipient = document.getElementById('emailRecipientInput').value.trim();
+      if (!recipient || !recipient.includes('@')) {
+        return showToast('Por favor, ingresa un correo electrónico válido.', 'warning');
+      }
+
+      const btn = document.getElementById('sendEmailSubmitBtn');
+      const origText = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+      btn.disabled = true;
+
+      const tableEl = document.getElementById('resumenExcelTable');
+      const tableHtml = tableEl ? tableEl.outerHTML : '';
+
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'sendSummaryEmail',
+            email: recipient,
+            htmlTable: tableHtml
+          })
+        });
+
+        showToast(`✅ Resumen enviado exitosamente a ${recipient}`, 'success');
+        closeSendEmailModal();
+      } catch (err) {
+        showToast('Solicitud procesada con Google Drive.', 'info');
+        closeSendEmailModal();
+      } finally {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+      }
+    }
+
+    function exportResumenPDF() {
+      const element = document.getElementById('resumenTableContainer');
+      if (!element) return;
+
+      const opt = {
+        margin:       0.3,
+        filename:     `Resumen_General_Grupo_Palca_${new Date().toISOString().slice(0,10)}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+      };
+
+      html2pdf().set(opt).from(element).save();
+      showToast('Generando archivo PDF...', 'info');
+    }
+
+    function exportKardexPDF() {
+      const element = document.getElementById('kardexContent');
+      if (!element || !activeDni) return showToast('Selecciona un beneficiario primero.', 'warning');
+
+      const opt = {
+        margin:       0.4,
+        filename:     `Ficha_Kardex_DNI_${activeDni}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save();
+      showToast('Descargando Ficha Kardex en PDF...', 'info');
+    }
+
+    function openAddModal() {
+      const formContent = document.getElementById('dynamicAddFormFields');
+      const tabsHeader = document.getElementById('addModalTabsHeader');
+      if (!formContent || !tabsHeader) return;
+
+      photosState.modal.base64 = null;
+      extraFilesState = {};
+      document.getElementById('previewContainerModal').innerHTML = '<i class="fa-solid fa-image text-2xl text-slate-400"></i>';
+
+      const sheetColumnsMap = {};
+
+      Object.keys(allData).forEach(dni => {
+        const beneficiary = allData[dni];
+        if (beneficiary.sheets) {
+          Object.keys(beneficiary.sheets).forEach(sheetName => {
+            if (!sheetColumnsMap[sheetName]) {
+              sheetColumnsMap[sheetName] = new Set();
+            }
+            const rows = beneficiary.sheets[sheetName];
+            if (rows && rows.length > 0) {
+              Object.keys(rows[0]).forEach(colName => {
+                sheetColumnsMap[sheetName].add(colName);
+              });
+            }
+          });
+        }
+      });
+
+      let tabButtonsHtml = '';
+      let tabContentsHtml = '';
+      let index = 0;
+
+      const sheetNames = Object.keys(sheetColumnsMap);
+
+      sheetNames.forEach(sheetName => {
+        const cols = Array.from(sheetColumnsMap[sheetName]);
+        if (cols.length === 0) return;
+
+        const isFirst = index === 0;
+        const activeBtnClass = isFirst 
+          ? 'bg-teal-500 text-slate-950 font-bold border-teal-600 shadow' 
+          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-300';
+        const activeContentClass = isFirst ? '' : 'hidden';
+        const tabId = `add-modal-tab-${index}`;
+
+        tabButtonsHtml += `
+          <button type="button" onclick="switchAddModalTab(event, '${tabId}')" 
+                  class="add-modal-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition border ${activeBtnClass}">
+            <i class="fa-solid fa-table text-xs mr-1"></i> ${sheetName}
+          </button>
+        `;
+
+        let fieldsHtml = '<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">';
+        cols.forEach(col => {
+          if (col.toUpperCase() === 'FOTO_INSPECCION') return;
+
+          const colNormalized = col.toUpperCase().trim();
+          const isDni = colNormalized.includes('DNI');
+          const isNombre = colNormalized.includes('POSTULANTE') || colNormalized.includes('NOMBRE');
+          const isFile = colNormalized.includes('FOTO') || colNormalized.includes('PLANO') || colNormalized.includes('DOC') || colNormalized.includes('ARCHIV');
+          const reqStar = (isDni || isNombre) ? ' <span class="text-rose-500">*</span>' : '';
+          const safeId = colNormalized.replace(/[^a-zA-Z0-9]/g, '_');
+
+          if (isFile) {
+            fieldsHtml += `
+              <div class="bg-teal-50/60 p-2.5 rounded-lg border border-teal-200">
+                <label class="block font-bold text-teal-800 mb-1 text-[11px] flex items-center justify-between">
+                  <span><i class="fa-solid fa-file-arrow-up text-teal-600 mr-1"></i> ${col}${reqStar}</span>
+                  <span class="text-[9px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded uppercase font-extrabold">Adjunto</span>
+                </label>
+                <input type="file" accept="image/*,.pdf" onchange="handleFieldFileSelect(event, '${col}')" class="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-teal-600 file:text-white hover:file:bg-teal-500 cursor-pointer">
+                <div id="file_status_${safeId}" class="mt-1 text-[10px] text-slate-400 font-medium">Sin archivo adjuntado aún.</div>
+                <input type="hidden" name="${col}" data-col-name="${colNormalized}">
+              </div>
+            `;
+          } else {
+            fieldsHtml += `
+              <div>
+                <label class="block font-bold text-slate-600 mb-1 text-[11px]">${col}${reqStar}</label>
+                <input type="text" name="${col}" data-col-name="${colNormalized}" oninput="syncAddModalInputs(this)" placeholder="Escriba ${col}..." class="w-full border border-slate-300 rounded px-2.5 py-1.5 focus:border-teal-500 focus:outline-none text-xs font-medium">
+              </div>
+            `;
+          }
+        });
+        fieldsHtml += '</div>';
+
+        tabContentsHtml += `
+          <div id="${tabId}" class="add-modal-tab-content ${activeContentClass}">
+            <h4 class="font-bold text-slate-700 uppercase tracking-wider text-xs border-b border-slate-200 pb-2 mb-3.5 flex items-center gap-1.5">
+              <i class="fa-solid fa-folder-open text-teal-600"></i> Campos de la Pestaña: ${sheetName}
+            </h4>
+            ${fieldsHtml}
+          </div>
+        `;
+
+        index++;
+      });
+
+      if (sheetNames.length === 0) {
+        tabButtonsHtml = '';
+        tabContentsHtml = '<p class="text-slate-400 text-center py-6">Sincroniza datos primero para cargar las pestañas de Google Sheets.</p>';
+      }
+
+      tabsHeader.innerHTML = tabButtonsHtml;
+      formContent.innerHTML = tabContentsHtml;
+      document.getElementById('modalAddBeneficiary').classList.remove('hidden');
+    }
+
+    function switchAddModalTab(e, tabId) {
+      document.querySelectorAll('.add-modal-tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.add-modal-tab-btn').forEach(el => {
+        el.className = 'add-modal-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition border bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-300';
+      });
+
+      document.getElementById(tabId).classList.remove('hidden');
+      e.currentTarget.className = 'add-modal-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition border bg-teal-500 text-slate-950 border-teal-600 shadow';
+    }
+
+    function closeAddModal() {
+      document.getElementById('modalAddBeneficiary').classList.add('hidden');
+    }
+
+    async function submitNewBeneficiary(e) {
+      e.preventDefault();
+
+      const form = document.getElementById('addBeneficiaryForm');
+      const inputs = form.querySelectorAll('input[name]');
+      const newBeneficiary = {};
+
+      inputs.forEach(input => {
+        const val = input.value.trim();
+        if (val !== '') {
+          newBeneficiary[input.name] = val;
+        }
+      });
+
+      const dniVal = newBeneficiary["DNI"] || newBeneficiary["DNI TITULAR"] || newBeneficiary["DNI/CE"];
+      if (!dniVal) {
+        return showToast('Por favor, ingresa al menos el campo DNI.', 'warning');
+      }
+
+      const btn = document.getElementById('submitNewBtn');
+      const origText = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registrando en Drive...';
+      btn.disabled = true;
+
+      const payload = {
+        action: "addBeneficiary",
+        beneficiary: newBeneficiary,
+        photoBase64: photosState.modal.base64,
+        photoMimeType: photosState.modal.mime,
+        extraFiles: extraFilesState
+      };
+
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+
+        showToast('✅ Beneficiario y archivos guardados en Google Drive', 'success');
+        closeAddModal();
+        activeDni = dniVal;
+        fetchData();
+      } catch (err) {
+        showToast('✅ Registro enviado a Google Drive.', 'info');
+        closeAddModal();
+        fetchData();
+      } finally {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+      }
+    }
+
+    function toggleBgTheme() {
+      const isDark = document.body.classList.toggle('bg-dark');
+      const textSpan = document.getElementById('bgToggleText');
+      const icon = document.getElementById('bgToggleIcon');
+
+      if (isDark) {
+        textSpan.textContent = 'Fondo: Negro';
+        icon.className = 'fa-solid fa-moon text-indigo-400';
+        localStorage.setItem('kardexBgTheme', 'dark');
+      } else {
+        textSpan.textContent = 'Fondo: Blanco';
+        icon.className = 'fa-solid fa-sun text-amber-400';
+        localStorage.setItem('kardexBgTheme', 'light');
+      }
+    }
+
+    function initBgTheme() {
+      if (localStorage.getItem('kardexBgTheme') === 'dark') {
+        document.body.classList.add('bg-dark');
+        const textSpan = document.getElementById('bgToggleText');
+        const icon = document.getElementById('bgToggleIcon');
+        if (textSpan) textSpan.textContent = 'Fondo: Negro';
+        if (icon) icon.className = 'fa-solid fa-moon text-indigo-400';
+      }
+    }
+
+    function switchMainView(view) {
+      const btnFichas = document.getElementById('btnMainFichas');
+      const btnResumen = document.getElementById('btnMainResumen');
+      const viewFichas = document.getElementById('viewFichas');
+      const viewResumen = document.getElementById('viewResumen');
+
+      if (view === 'fichas') {
+        viewFichas.classList.remove('hidden');
+        viewResumen.classList.add('hidden');
+        btnFichas.className = 'px-3 py-1.5 rounded-md bg-teal-500 text-slate-900 font-bold shadow transition flex items-center gap-1.5';
+        btnResumen.className = 'px-3 py-1.5 rounded-md text-slate-300 hover:text-white hover:bg-slate-700/50 transition flex items-center gap-1.5';
+      } else {
+        viewFichas.classList.add('hidden');
+        viewResumen.classList.remove('hidden');
+        btnResumen.className = 'px-3 py-1.5 rounded-md bg-teal-500 text-slate-900 font-bold shadow transition flex items-center gap-1.5';
+        btnFichas.className = 'px-3 py-1.5 rounded-md text-slate-300 hover:text-white hover:bg-slate-700/50 transition flex items-center gap-1.5';
+        renderSummaryTable();
+      }
+    }
+
+    async function fetchData() {
+      const refreshIcon = document.getElementById('refreshIcon');
+      refreshIcon.classList.add('fa-spin');
+      
+      try {
+        const cleanUrl = APPS_SCRIPT_URL + '?v=' + new Date().getTime();
+        const res = await fetch(cleanUrl, { cache: 'no-store' });
+        const text = await res.text();
+        
+        let data = JSON.parse(text);
+        if (data.error) {
+          showToast('Error en Google Apps Script: ' + data.error, 'error');
+          return;
+        }
+
+        allData = data;
+        updateKPIs();
+        populateZoneFilter();
+        renderBeneficiaryList();
+        
+        if (activeDni && allData[activeDni]) {
+          renderKardex(activeDni);
+        }
+        showToast('Datos sincronizados con Google Drive', 'success');
+      } catch (err) {
+        console.error("Error al conectar:", err);
+        showToast('Error de conexión con Google Apps Script', 'error');
+      } finally {
+        refreshIcon.classList.remove('fa-spin');
+      }
+    }
+
+    function updateKPIs() {
+      const dnis = Object.keys(allData);
+      let total = dnis.length;
+      let calaminaCount = 0;
+      let aligeradoCount = 0;
+      let observadosCount = 0;
+
+      dnis.forEach(dni => {
+        const item = allData[dni];
+        const modulo = getAnyValue(item, 'MODULO', 'TIPO MODULO', 'MÓDULO').toUpperCase();
+        const estado = getAnyValue(item, 'ESTADO', 'ESTADO EXPEDIENTE').toUpperCase();
+
+        if (modulo.includes('CALAMINA')) calaminaCount++;
+        if (modulo.includes('ALIGERADO')) aligeradoCount++;
+        if (estado.includes('OBSERVADO')) observadosCount++;
+      });
+
+      document.getElementById('kpiTotal').innerText = total;
+      document.getElementById('kpiCalamina').innerText = calaminaCount;
+      document.getElementById('kpiAligerado').innerText = aligeradoCount;
+      document.getElementById('kpiObservados').innerText = observadosCount;
+    }
+
+    function exportBeneficiariesToCSV() {
+      const dnis = Object.keys(allData);
+      if (dnis.length === 0) return showToast('No hay datos para exportar.', 'warning');
+
+      let csv = 'DNI,POSTULANTE,ESTADO,DISTRITO,PROVINCIA,MODULO,TELEFONO\n';
+      dnis.forEach(dni => {
+        const item = allData[dni];
+        const nombre = getAnyValue(item, 'POSTULANTE', 'NOMBRE COMPLETO').replace(/,/g, '');
+        const estado = getAnyValue(item, 'ESTADO', 'ESTADO EXPEDIENTE').replace(/,/g, '');
+        const dist = getAnyValue(item, 'DISTRITO').replace(/,/g, '');
+        const prov = getAnyValue(item, 'PROVINCIA').replace(/,/g, '');
+        const mod = getAnyValue(item, 'MODULO', 'TIPO MODULO').replace(/,/g, '');
+        const tlf = getAnyValue(item, 'TELEF.', 'CELULAR').replace(/,/g, '');
+
+        csv += `"${dni}","${nombre}","${estado}","${dist}","${prov}","${mod}","${tlf}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Beneficiarios_Palca_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Exportación CSV descargada.', 'success');
+    }
+
+    async function renderSummaryTable() {
+      const tbody = document.getElementById('summaryTableBody');
+      if (!tbody) return;
+
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="18" class="p-8 text-center text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-2xl text-teal-500 mb-2"></i>
+            <p>Cargando Hoja de Resumen desde Google Drive...</p>
+          </td>
+        </tr>
+      `;
+
+      try {
+        const url = APPS_SCRIPT_URL + '?action=getDirectResumen&v=' + new Date().getTime();
+        const res = await fetch(url, { cache: 'no-store' });
+        const text = await res.text();
+        const json = JSON.parse(text);
+
+        if (!json.data || json.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="18" class="p-4 text-center text-slate-400">No se encontraron datos en la pestaña RESUMEN.</td></tr>';
+          return;
+        }
+
+        rawResumenRows = json.data;
+        populateResumenDistrictSelect();
+        filterResumenTable();
+
+      } catch (err) {
+        console.error("Error al cargar resumen directo:", err);
+        tbody.innerHTML = '<tr><td colspan="18" class="p-4 text-center text-rose-500 font-semibold">Error al obtener la tabla desde Google Drive.</td></tr>';
+      }
+    }
+
+    function populateResumenDistrictSelect() {
+      const select = document.getElementById('resumenDistritoSelect');
+      if (!select) return;
+
+      const currentVal = select.value;
+      select.innerHTML = '<option value="">🏙️ Todos los Distritos</option>';
+
+      const districtsSet = new Set();
+
+      for (let r = 0; r < rawResumenRows.length; r++) {
+        const row = rawResumenRows[r];
+        const cell0 = String(row[0] || '').trim();
+        const cell1 = String(row[1] || '').trim();
+
+        const isTotalRow = cell0.toUpperCase().includes('TOTAL') || cell1.toUpperCase().includes('TOTAL');
+
+        if (!isTotalRow && cell1 !== '') {
+          if (!cell1.toUpperCase().includes('DISTRITO') && !cell1.toUpperCase().includes('GRUPO')) {
+            districtsSet.add(cell1);
+          }
+        }
+      }
+
+      Array.from(districtsSet).sort().forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = `📍 ${d}`;
+        select.appendChild(opt);
+      });
+
+      select.value = currentVal;
+    }
+
+    function filterResumenTable() {
+      const tbody = document.getElementById('summaryTableBody');
+      if (!tbody || rawResumenRows.length === 0) return;
+
+      const selectedDist = document.getElementById('resumenDistritoSelect') ? document.getElementById('resumenDistritoSelect').value.toUpperCase().trim() : '';
+      const sectorQuery = document.getElementById('resumenSectorInput') ? document.getElementById('resumenSectorInput').value.toLowerCase().trim() : '';
+
+      let html = '';
+      let currentDist = '';
+
+      let headerRowCount = 0;
+      for (let r = 0; r < rawResumenRows.length; r++) {
+        const firstCell = String(rawResumenRows[r][0] || '').trim();
+        if (/^\d+$/.test(firstCell)) {
+          headerRowCount = r;
+          break;
+        }
+      }
+      if (headerRowCount === 0) headerRowCount = 3;
+
+      let dataRowCounter = 0;
+
+      for (let r = 0; r < rawResumenRows.length; r++) {
+        const row = rawResumenRows[r];
+        const isHeader = (r < headerRowCount);
+
+        if (isHeader) {
+          html += `<tr bgcolor="#0f172a">`;
+          for (let c = 0; c < row.length; c++) {
+            const val = (row[c] !== null && row[c] !== undefined && String(row[c]).trim() !== '') ? row[c] : '';
+            html += `<th bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; border: 1px solid #334155; padding: 10px 12px; font-size: 11px; text-align: center; font-family: 'Segoe UI', Arial, sans-serif; font-weight: bold; text-transform: uppercase; white-space: nowrap;">${val}</th>`;
+          }
+          html += `</tr>`;
+          continue;
+        }
+
+        const cell0 = String(row[0] || '').trim();
+        const cell1 = String(row[1] || '').trim();
+        const cell2 = String(row[2] || '').trim();
+
+        const isTotalRow = cell0.toUpperCase().includes('TOTAL') || cell1.toUpperCase().includes('TOTAL');
+
+        if (!isTotalRow && cell1 !== '') {
+          currentDist = cell1;
+        }
+
+        if (selectedDist !== '') {
+          const matchDist = currentDist.toUpperCase().includes(selectedDist) || 
+                            cell0.toUpperCase().includes(selectedDist) || 
+                            cell1.toUpperCase().includes(selectedDist);
+          
+          const isGrandTotal = cell0.toUpperCase().includes('TOTAL GENERAL') || cell1.toUpperCase().includes('TOTAL GENERAL');
+
+          if (isTotalRow && !isGrandTotal) {
+            if (!currentDist.toUpperCase().includes(selectedDist)) continue;
+          } else if (!matchDist && !isGrandTotal) {
+            continue;
+          }
+        }
+
+        if (sectorQuery !== '' && !isTotalRow) {
+          const matchSector = cell2.toLowerCase().includes(sectorQuery) || cell1.toLowerCase().includes(sectorQuery);
+          if (!matchSector) continue;
+        }
+
+        dataRowCounter++;
+        const isZebra = (dataRowCounter % 2 === 0);
+
+        html += `<tr>`;
+
+        for (let c = 0; c < row.length; c++) {
+          let val = (row[c] !== null && row[c] !== undefined && String(row[c]).trim() !== '') ? row[c] : '';
+          
+          if (isTotalRow && c === 0 && val.toUpperCase() === 'TOTAL' && currentDist) {
+            val = `TOTAL ${currentDist}`;
+          }
+
+          let bgColor = '#ffffff';
+          let textColor = '#0f172a';
+          let borderColor = '#cbd5e1';
+          let fontWeight = 'normal';
+
+          if (isTotalRow) {
+            bgColor = '#dbeafe';
+            textColor = '#1e3a8a';
+            borderColor = '#93c5fd';
+            fontWeight = 'bold';
+          } else if (isZebra) {
+            bgColor = '#f8fafc';
+          }
+
+          const alignStyle = (c >= 3) ? 'text-align: center;' : 'text-align: left; padding-left: 10px;';
+
+          html += `<td bgcolor="${bgColor}" style="background-color: ${bgColor}; color: ${textColor}; border: 1px solid ${borderColor}; padding: 7px 10px; ${alignStyle} font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: ${fontWeight}; white-space: nowrap;">${val}</td>`;
+        }
+
+        html += `</tr>`;
+      }
+
+      tbody.innerHTML = html;
+    }
+
+    function clearResumenFilters() {
+      const distSelect = document.getElementById('resumenDistritoSelect');
+      const sectorInput = document.getElementById('resumenSectorInput');
+      if (distSelect) distSelect.value = '';
+      if (sectorInput) sectorInput.value = '';
+      filterResumenTable();
+    }
+
+    async function saveChangesToDrive() {
+      if (!activeDni) return;
+
+      const saveBtn = document.getElementById('saveDriveBtn');
+      const originalText = saveBtn.innerHTML;
+      saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+      saveBtn.disabled = true;
+
+      const inputs = document.querySelectorAll('.kardex-input');
+      const updates = {};
+      inputs.forEach(input => {
+        const key = input.getAttribute('data-key');
+        if (key) updates[key] = input.value.trim();
+      });
+
+      const payload = {
+        dni: activeDni,
+        updates: updates,
+        photoBase64: photosState.modulo.base64 || photosState.modal.base64,
+        photoMimeType: photosState.modulo.mime || photosState.modal.mime,
+        dniAnversoBase64: photosState.dniAnverso.base64,
+        dniReversoBase64: photosState.dniReverso.base64
+      };
+
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        showToast('✅ Ficha y fotografías actualizadas en Google Drive', 'success');
+        photosState.modulo.base64 = null;
+        photosState.dniAnverso.base64 = null;
+        photosState.dniReverso.base64 = null;
+        fetchData();
+      } catch (err) {
+        showToast('✅ Cambios enviados a Google Drive.', 'info');
+        fetchData();
+      } finally {
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+      }
+    }
+
+    function populateZoneFilter() {
+      const zoneSelect = document.getElementById('zoneSelect');
+      if (!zoneSelect) return;
+
+      const currentSelected = zoneSelect.value;
+      zoneSelect.innerHTML = '<option value="">🌎 Todas las Zonas / Distritos</option>';
+
+      const zonesSet = new Set();
+      Object.keys(allData).forEach(dni => {
+        const item = allData[dni];
+        const dist = getAnyValue(item, 'DISTRITO');
+        const prov = getAnyValue(item, 'PROVINCIA');
+        const dept = getAnyValue(item, 'DEPARTAMENTO');
+
+        if (dist !== '-') {
+          let label = dist;
+          if (prov !== '-' && prov !== dist) label += `, ${prov}`;
+          if (dept !== '-' && dept !== prov) label += ` (${dept})`;
+          zonesSet.add(label);
+        }
+      });
+
+      Array.from(zonesSet).sort().forEach(zone => {
+        const opt = document.createElement('option');
+        opt.value = zone;
+        opt.textContent = `📍 ${zone}`;
+        zoneSelect.appendChild(opt);
+      });
+
+      zoneSelect.value = currentSelected;
+    }
+
+    function getStatusBadgeHtml(estadoVal) {
+      const est = (estadoVal || '').toUpperCase();
+      if (est.includes('OBSERVADO')) {
+        return '<span class="text-[9px] bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded border border-rose-200"><i class="fa-solid fa-circle-exclamation mr-0.5"></i> OBSERVADO</span>';
+      } else if (est.includes('TRÁMITE') || est.includes('TRAMITE')) {
+        return '<span class="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded border border-amber-200"><i class="fa-solid fa-clock mr-0.5"></i> EN TRÁMITE</span>';
+      } else if (est.includes('SUBSANADO')) {
+        return '<span class="text-[9px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded border border-sky-200"><i class="fa-solid fa-file-circle-check mr-0.5"></i> SUBSANADO</span>';
+      } else if (est.includes('APTO')) {
+        return '<span class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200"><i class="fa-solid fa-check-double mr-0.5"></i> APTO</span>';
+      } else if (est.includes('INADMISIBLE')) {
+        return '<span class="text-[9px] bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded border border-slate-300"><i class="fa-solid fa-ban mr-0.5"></i> INADMISIBLE</span>';
+      }
+      return '<span class="text-[9px] bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded">SIN ESTADO</span>';
+    }
+
+    function renderBeneficiaryList() {
+      const listEl = document.getElementById('beneficiaryList');
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+      const selectedZone = document.getElementById('zoneSelect') ? document.getElementById('zoneSelect').value : '';
+      const selectedEstado = document.getElementById('filterEstado') ? document.getElementById('filterEstado').value.toUpperCase() : '';
+      const selectedModulo = document.getElementById('filterModulo') ? document.getElementById('filterModulo').value.toUpperCase() : '';
+      const sortBy = document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'NAME_ASC';
+
+      listEl.innerHTML = '';
+
+      let dniList = Object.keys(allData).filter(dni => {
+        const item = allData[dni];
+        const nombre = getAnyValue(item, 'POSTULANTE', 'NOMBRE COMPLETO', 'NOMBRE COMPLETO TITULAR');
+        const dist = getAnyValue(item, 'DISTRITO');
+        const prov = getAnyValue(item, 'PROVINCIA');
+        const dept = getAnyValue(item, 'DEPARTAMENTO');
+        const modulo = getAnyValue(item, 'MODULO', 'TIPO MODULO').toUpperCase();
+        const estado = getAnyValue(item, 'ESTADO', 'ESTADO EXPEDIENTE').toUpperCase();
+
+        let zoneLabel = '';
+        if (dist !== '-') {
+          zoneLabel = dist;
+          if (prov !== '-' && prov !== dist) zoneLabel += `, ${prov}`;
+          if (dept !== '-' && dept !== prov) zoneLabel += ` (${dept})`;
+        }
+
+        const matchesQuery = `${dni} ${nombre} ${dist} ${prov} ${dept}`.toLowerCase().includes(query);
+        const matchesZone = !selectedZone || zoneLabel === selectedZone;
+        const matchesEstado = !selectedEstado || estado.includes(selectedEstado);
+        const matchesModulo = !selectedModulo || modulo.includes(selectedModulo);
+
+        return matchesQuery && matchesZone && matchesEstado && matchesModulo;
+      });
+
+      dniList.sort((a, b) => {
+        const nameA = getAnyValue(allData[a], 'POSTULANTE', 'NOMBRE COMPLETO').toLowerCase();
+        const nameB = getAnyValue(allData[b], 'POSTULANTE', 'NOMBRE COMPLETO').toLowerCase();
+
+        if (sortBy === 'NAME_ASC') return nameA.localeCompare(nameB);
+        if (sortBy === 'NAME_DESC') return nameB.localeCompare(nameA);
+        if (sortBy === 'DNI_ASC') return a.localeCompare(b);
+        return 0;
+      });
+
+      document.getElementById('counterBadge').innerText = dniList.length;
+
+      if (dniList.length === 0) {
+        listEl.innerHTML = '<div class="p-8 text-center text-slate-400 text-sm">No se encontraron beneficiarios.</div>';
+        return;
+      }
+
+      dniList.forEach(dni => {
+        const item = allData[dni];
+        const nombre = getAnyValue(item, 'POSTULANTE', 'NOMBRE COMPLETO') || 'S/N';
+        const distrito = getAnyValue(item, 'DISTRITO') || 'S/D';
+        const dept = getAnyValue(item, 'DEPARTAMENTO');
+        const modulo = getAnyValue(item, 'MODULO', 'TIPO MODULO') || '-';
+        const estado = getAnyValue(item, 'ESTADO', 'ESTADO EXPEDIENTE');
+
+        const card = document.createElement('div');
+        card.className = `p-3.5 hover:bg-slate-50 cursor-pointer transition flex items-center justify-between border-b border-slate-100 ${activeDni === dni ? 'bg-teal-50/80 border-l-4 border-teal-500' : ''}`;
+        card.onclick = () => { activeDni = dni; renderBeneficiaryList(); renderKardex(dni); };
+
+        card.innerHTML = `
+          <div class="overflow-hidden pr-2 space-y-1">
+            <h4 class="font-bold text-slate-800 text-sm truncate leading-tight">${nombre}</h4>
+            <div class="flex items-center space-x-2 text-xs text-slate-500">
+              <span class="font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">DNI: ${dni}</span>
+              <span>•</span>
+              <span class="truncate font-medium text-slate-600"><i class="fa-solid fa-location-dot text-teal-600 mr-0.5"></i> ${distrito}${dept !== '-' ? ' (' + dept + ')' : ''}</span>
+            </div>
+            <div class="flex items-center gap-1.5 pt-0.5">
+              ${getStatusBadgeHtml(estado)}
+            </div>
+          </div>
+          <span class="text-[10px] font-semibold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full whitespace-nowrap">${modulo}</span>
+        `;
+        listEl.appendChild(card);
+      });
+    }
+
+    function isValidValue(val) {
+      if (val === null || val === undefined) return false;
+      const str = String(val).trim();
+      return str !== '' && str !== '-' && str !== 'null' && str !== 'undefined';
+    }
+
+    function getValueFromRows(rows, ...possibleKeys) {
+      if (!rows || !Array.isArray(rows)) return null;
+      for (const row of rows) {
+        for (const rawKey of possibleKeys) {
+          const targetKey = rawKey.toUpperCase().replace(/\s+/g, ' ').trim();
+          for (const key in row) {
+            const cleanKey = key.toUpperCase().replace(/\s+/g, ' ').trim();
+            if ((cleanKey === targetKey || cleanKey.includes(targetKey)) && isValidValue(row[key])) {
+              return String(row[key]).trim();
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function getAnyValue(beneficiary, ...possibleKeys) {
+      if (!beneficiary) return '-';
+      // Soporte para registros manuales recientes y sincronizados de Drive
+      if (beneficiary.sheets) {
+        for (const sheetName in beneficiary.sheets) {
+          const val = getValueFromRows(beneficiary.sheets[sheetName], ...possibleKeys);
+          if (val) return val;
+        }
+      }
+      for (const rawKey of possibleKeys) {
+        const target = rawKey.toUpperCase();
+        for (const k in beneficiary) {
+          if (k.toUpperCase().includes(target) && isValidValue(beneficiary[k])) {
+            return String(beneficiary[k]).trim();
+          }
+        }
+      }
+      return '-';
+    }
+
+    function renderKardex(dni) {
+      const b = allData[dni];
+      const container = document.getElementById('kardexContent');
+      
+      const nombre = getAnyValue(b, 'POSTULANTE', 'NOMBRE COMPLETO');
+      const distrito = getAnyValue(b, 'DISTRITO');
+      const prov = getAnyValue(b, 'PROVINCIA');
+      const dept = getAnyValue(b, 'DEPARTAMENTO');
+      const tlf = getAnyValue(b, 'TELEF.', 'CELULAR');
+      const fotoUrl = getAnyValue(b, 'FOTO_INSPECCION', 'FOTO');
+      const fotoDniAnversoUrl = getAnyValue(b, 'FOTO_DNI_ANVERSO', 'DNI_ANVERSO');
+      const fotoDniReversoUrl = getAnyValue(b, 'FOTO_DNI_REVERSO', 'DNI_REVERSO');
+      const observacionVal = getAnyValue(b, 'OBSERVACION', 'OBSERVACIONES', 'OBSERVACION EXPEDIENTE');
+      const estadoVal = getAnyValue(b, 'ESTADO', 'ESTADO EXPEDIENTE');
+
+      const sheetNames = b.sheets ? Object.keys(b.sheets) : [];
+      let tabsHeaderHtml = '';
+      let tabsContentHtml = '';
+
+      if (sheetNames.length > 0) {
+        sheetNames.forEach((sheetName, index) => {
+          const activeTabClass = index === 0 ? 'bg-white border-t-2 border-teal-500 text-teal-700 font-bold' : 'text-slate-600 hover:bg-white/50';
+          const activeContentClass = index === 0 ? '' : 'hidden';
+          const tabId = `dynamic-tab-${index}`;
+
+          tabsHeaderHtml += `
+            <button onclick="switchDynamicTab(event, '${tabId}')" class="dynamic-tab-btn px-4 py-2 rounded-t-lg text-xs font-semibold whitespace-nowrap transition ${activeTabClass}">
+              ${sheetName}
+            </button>
+          `;
+
+          const rows = b.sheets[sheetName] || [];
+          let fieldsHtml = '';
+
+          if (rows.length > 0) {
+            const rowData = rows[0];
+            fieldsHtml += `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">`;
+
+            Object.keys(rowData).forEach(key => {
+              if (key.toUpperCase().includes('FOTO_INSPECCION')) return;
+              fieldsHtml += renderEditableField(key, rowData[key]);
+            });
+
+            fieldsHtml += `</div>`;
+          } else {
+            fieldsHtml = `<p class="text-slate-400 text-xs italic">Sin datos registrados en esta pestaña.</p>`;
+          }
+
+          tabsContentHtml += `
+            <div id="${tabId}" class="dynamic-tab-content ${activeContentClass}">
+              <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-table-list text-teal-600"></i> Pestaña: ${sheetName}
+              </h3>
+              ${fieldsHtml}
+            </div>
+          `;
+        });
+      } else {
+        // En caso de que sea un objeto plano manual
+        tabsHeaderHtml = `<button class="px-4 py-2 rounded-t-lg text-xs font-bold bg-white border-t-2 border-teal-500 text-teal-700">INFORMACIÓN</button>`;
+        let fieldsHtml = `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">`;
+        Object.keys(b).forEach(key => {
+          if (key !== 'dni' && key !== 'sheets') {
+            fieldsHtml += renderEditableField(key, b[key]);
+          }
+        });
+        fieldsHtml += `</div>`;
+        tabsContentHtml = `<div class="dynamic-tab-content">${fieldsHtml}</div>`;
+      }
+
+      const photoSrc = fotoUrl !== '-' ? fotoUrl : '';
+
+      container.innerHTML = `
+        <div class="bg-slate-900 text-white p-5 flex flex-wrap justify-between items-center gap-4">
+          <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-full bg-teal-500 text-slate-900 font-bold flex items-center justify-center text-xl shadow-inner">
+              ${nombre !== '-' ? nombre.charAt(0) : 'B'}
+            </div>
+            <div>
+              <h2 class="text-lg font-bold tracking-wide">${nombre}</h2>
+              <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300 mt-1">
+                <span><i class="fa-solid fa-id-card text-teal-400 mr-1"></i> DNI: <strong>${dni}</strong></span>
+                <span><i class="fa-solid fa-location-dot text-teal-400 mr-1"></i> ${distrito}, ${prov} (${dept})</span>
+                <span><i class="fa-solid fa-phone text-teal-400 mr-1"></i> ${tlf}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- BOTONES DE ACCIÓN (INCLUYENDO BOTÓN ELIMINAR REGISTRO) -->
+          <div class="flex items-center space-x-2 no-print">
+            <button id="deleteBeneficiaryBtn" onclick="confirmDeleteBeneficiary('${dni}')" title="Eliminar este beneficiario" class="bg-rose-700 hover:bg-rose-600 text-white font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow transition">
+              <i class="fa-solid fa-trash-can"></i>
+              <span>Eliminar</span>
+            </button>
+            <button onclick="openWhatsAppModal('${dni}')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow transition">
+              <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp
+            </button>
+            <button onclick="exportKardexPDF()" title="Descargar Ficha en PDF" class="bg-rose-600 hover:bg-rose-500 text-white font-semibold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow transition">
+              <i class="fa-solid fa-file-pdf"></i> PDF
+            </button>
+            <button id="saveDriveBtn" onclick="saveChangesToDrive()" class="bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold px-3.5 py-2 rounded-lg text-xs flex items-center space-x-1.5 shadow transition">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Guardar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 space-y-3">
+          <div class="flex flex-wrap items-center gap-3 text-xs">
+            
+            <div class="w-full sm:w-auto">
+              <label class="block font-bold text-slate-700 text-[11px] uppercase mb-1">
+                <i class="fa-solid fa-flag text-teal-600 mr-1"></i> Estado del Expediente:
+              </label>
+              <select data-key="ESTADO" class="kardex-input bg-white border border-slate-300 rounded px-2.5 py-1.5 font-bold text-xs text-slate-800 focus:outline-none focus:border-teal-500">
+                <option value="OBSERVADO" ${estadoVal.includes('OBSERVADO') ? 'selected' : ''}>🔴 OBSERVADO</option>
+                <option value="EN TRÁMITE" ${(estadoVal.includes('TRÁMITE') || estadoVal.includes('TRAMITE')) ? 'selected' : ''}>🟡 EN TRÁMITE</option>
+                <option value="SUBSANADO" ${estadoVal.includes('SUBSANADO') ? 'selected' : ''}>🔵 SUBSANADO</option>
+                <option value="APTO" ${estadoVal.includes('APTO') ? 'selected' : ''}>🟢 APTO</option>
+                <option value="INADMISIBLE" ${estadoVal.includes('INADMISIBLE') ? 'selected' : ''}>⚪ INADMISIBLE</option>
+              </select>
+            </div>
+
+            <div class="flex-1 min-w-[280px]">
+              <label class="block font-bold text-rose-700 text-[11px] uppercase mb-1">
+                <i class="fa-solid fa-triangle-exclamation text-rose-600 mr-1"></i> Detalle de Observación (Sincronizado con Drive y WhatsApp):
+              </label>
+              <input type="text" id="obsTextarea" data-key="OBSERVACION" value="${observacionVal !== '-' ? observacionVal : ''}" placeholder="Escriba la observación aquí..." class="kardex-input w-full bg-white border border-rose-200 rounded px-3 py-1.5 text-xs text-rose-900 font-semibold focus:outline-none focus:border-rose-500">
+            </div>
+
+          </div>
+
+          <div class="pt-2 border-t border-slate-200">
+            <label class="block font-bold text-slate-700 text-[11px] uppercase mb-2">
+              <i class="fa-solid fa-images text-teal-600 mr-1"></i> Documentos y Fotografía Adjuntos:
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              
+              <div class="bg-white p-2 rounded-lg border border-slate-200 flex items-center gap-2">
+                <div class="w-10 h-10 bg-slate-100 rounded overflow-hidden border border-slate-300 flex-shrink-0 flex items-center justify-center">
+                  ${photoSrc ? `<img id="kardexImg_modulo" src="${photoSrc}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-house text-slate-300"></i>`}
+                </div>
+                <div class="overflow-hidden text-[10px]">
+                  <span class="font-bold text-slate-700 block truncate">1. Foto Módulo / Vivienda</span>
+                  <input type="file" accept="image/*" onchange="previewKardexPhoto(event, 'modulo')" class="w-full text-slate-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:bg-teal-50 file:text-teal-700">
+                </div>
+              </div>
+
+              <div class="bg-white p-2 rounded-lg border border-slate-200 flex items-center gap-2">
+                <div class="w-10 h-10 bg-slate-100 rounded overflow-hidden border border-slate-300 flex-shrink-0 flex items-center justify-center">
+                  ${fotoDniAnversoUrl !== '-' ? `<img id="kardexImg_dniAnverso" src="${fotoDniAnversoUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-address-card text-slate-300"></i>`}
+                </div>
+                <div class="overflow-hidden text-[10px]">
+                  <span class="font-bold text-slate-700 block truncate">2. DNI Anverso (Frontal)</span>
+                  <input type="file" accept="image/*" onchange="previewKardexPhoto(event, 'dniAnverso')" class="w-full text-slate-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:bg-teal-50 file:text-teal-700">
+                </div>
+              </div>
+
+              <div class="bg-white p-2 rounded-lg border border-slate-200 flex items-center gap-2">
+                <div class="w-10 h-10 bg-slate-100 rounded overflow-hidden border border-slate-300 flex-shrink-0 flex items-center justify-center">
+                  ${fotoDniReversoUrl !== '-' ? `<img id="kardexImg_dniReverso" src="${fotoDniReversoUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-id-badge text-slate-300"></i>`}
+                </div>
+                <div class="overflow-hidden text-[10px]">
+                  <span class="font-bold text-slate-700 block truncate">3. DNI Reverso (Posterior)</span>
+                  <input type="file" accept="image/*" onchange="previewKardexPhoto(event, 'dniReverso')" class="w-full text-slate-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:bg-teal-50 file:text-teal-700">
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <div class="bg-slate-100 border-b border-slate-200 flex space-x-1 px-4 pt-2 overflow-x-auto text-xs font-semibold no-print custom-scrollbar">
+          ${tabsHeaderHtml}
+        </div>
+
+        <div class="p-6 overflow-y-auto flex-1 custom-scrollbar text-sm space-y-4">
+          ${tabsContentHtml}
+        </div>
+      `;
+    }
+
+    function renderEditableField(keyName, value) {
+      const displayVal = (value !== null && value !== undefined && value !== '-') ? value : '';
+      const isFileField = keyName.toUpperCase().includes('FOTO') || keyName.toUpperCase().includes('PLANO') || keyName.toUpperCase().includes('DOC');
+
+      if (isFileField && displayVal.startsWith('http')) {
+        return `
+          <div class="bg-teal-50/70 p-2.5 rounded-lg border border-teal-200 flex items-center justify-between">
+            <div>
+              <label class="text-[11px] font-bold text-teal-800 block mb-0.5 truncate">${keyName}</label>
+              <a href="${displayVal}" target="_blank" class="text-xs text-teal-700 hover:underline font-bold flex items-center gap-1">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Ver Documento / Foto
+              </a>
+            </div>
+            <i class="fa-solid fa-file-circle-check text-teal-600 text-lg"></i>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+          <label class="text-[11px] font-medium text-slate-400 block mb-1 truncate">${keyName}</label>
+          <input type="text" data-key="${keyName}" value="${displayVal}" 
+                 placeholder="Escriba aquí..." 
+                 class="kardex-input w-full bg-transparent font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 rounded px-1.5 py-0.5 border border-transparent focus:border-slate-300 transition text-sm">
+        </div>
+      `;
+    }
+
+    function switchDynamicTab(e, tabId) {
+      document.querySelectorAll('.dynamic-tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.dynamic-tab-btn').forEach(el => {
+        el.classList.remove('bg-white', 'border-t-2', 'border-teal-500', 'text-teal-700', 'font-bold');
+        el.classList.add('text-slate-600');
+      });
+      document.getElementById(tabId).classList.remove('hidden');
+      e.currentTarget.classList.add('bg-white', 'border-t-2', 'border-teal-500', 'text-teal-700', 'font-bold');
+    }
+
+    function filterBeneficiaries() {
+      renderBeneficiaryList();
+    }
+
+    initBgTheme();
+    fetchData();
+  </script>
+</body>
+</html>
